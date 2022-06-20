@@ -1,4 +1,4 @@
-export interface IGame {
+export default interface IGame {
 	id: string;
 	names: Names;
 	abbreviation: string;

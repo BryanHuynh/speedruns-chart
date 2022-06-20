@@ -1,4 +1,4 @@
-export interface ILeaderboard {
+export default interface ILeaderboard {
 	weblink: string;
 	game: string;
 	category: string;

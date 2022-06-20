@@ -1,4 +1,4 @@
-export interface IPlayer {
+export default interface IPlayer {
 	id: string;
 	names: Names;
 	supporterAnimation: boolean;

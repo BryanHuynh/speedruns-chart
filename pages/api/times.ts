@@ -1,4 +1,4 @@
-export interface IDataset {
+export default interface IDataset {
 	submissionDate: Date; // x
 	time: number; // y
 	player: string; // player
