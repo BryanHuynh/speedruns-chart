@@ -62,12 +62,12 @@ const Home: NextPage = (props: any) => {
 				completeOrders++;
 				if (totalOrders == completeOrders) {
 					setPlayerProgressionsComplete(true);
+					setLoading(false);
 					playerProgressions.forEach((value, key) => {
 						value.sort((a, b) => b.time - a.time);
 					});
 					setDatasets(getDatasets());
 				}
-				setLoading(false);
 			};
 			for (let i = 0; i < totalOrders; i++) {
 				date = date.subtract(1, "months");
@@ -176,6 +176,7 @@ const Home: NextPage = (props: any) => {
 			},
 			y: {
 				ticks: {
+					autoSkip: false,
 					callback: function (value, index, ticks) {
 						return moment
 							.utc(Number(value) * 1000)
@@ -243,6 +244,11 @@ const Home: NextPage = (props: any) => {
 							placeholder="Name"
 							ref={searchBarRef}
 							onChange={async (props) => {
+								setGameSelected(false);
+								setCategorySelected(false);
+								setSelectedCategory(undefined);
+								// setSelectedGame(props.target.value);
+
 								const input = props.target.value;
 								const res = await fetch(
 									`https://www.speedrun.com/api/v1/games?name=${input}`
@@ -296,9 +302,10 @@ const Home: NextPage = (props: any) => {
 							</Dropdown.Menu>
 						)}
 				</Form>
-				{loading && <h1>Loading...</h1>}
+				{loading && !playerProgressionsComplete && <h1>Loading...</h1>}
 				{playerProgressionsComplete &&
 					playerProgressions &&
+					!loading &&
 					datasets && <Line options={options} data={datasets} />}
 			</main>
 		</div>
