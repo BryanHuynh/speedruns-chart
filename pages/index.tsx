@@ -38,6 +38,7 @@ const Home: NextPage = (props: any) => {
 	const playerIdToName = new Map<string, string>();
 
 	let [datasets, setDatasets] = useState<any>(null);
+	const [loading, setLoading] = useState<boolean>(false);
 
 	useEffect(() => {
 		Chart.register(...registerables);
@@ -56,6 +57,7 @@ const Home: NextPage = (props: any) => {
 			let date = moment();
 			let completeOrders = 0;
 			let totalOrders = 20;
+			setLoading(true);
 			const completeOrder = () => {
 				completeOrders++;
 				if (totalOrders == completeOrders) {
@@ -65,6 +67,7 @@ const Home: NextPage = (props: any) => {
 					});
 					setDatasets(getDatasets());
 				}
+				setLoading(false);
 			};
 			for (let i = 0; i < totalOrders; i++) {
 				date = date.subtract(1, "months");
@@ -79,7 +82,9 @@ const Home: NextPage = (props: any) => {
 	}, [selectedCategory]);
 
 	const getGameCategory = async (id: string) => {
-		const res = await fetch(`./api/categories?id=${id}`);
+		const res = await fetch(
+			`https://www.speedrun.com/api/v1/games/${id}/categories`
+		);
 		const results = await res.json();
 		const categories: ICategories[] = results.data;
 		setGameCategories(categories);
@@ -92,10 +97,10 @@ const Home: NextPage = (props: any) => {
 		completeOrder: () => void
 	) => {
 		const res = await fetch(
-			`./api/leaderboards?game=${gameId}&&category=${categoryId}&&date=${date.toISOString()}`
+			`https://www.speedrun.com/api/v1/leaderboards/${gameId}/category/${categoryId}?date=${date.toISOString()}&top=5`
 		);
 		const results = await res.json();
-		const leaderboards: ILeaderboard = results;
+		const leaderboards: ILeaderboard = results.data;
 		parseLeaderBoard(leaderboards.runs, completeOrder);
 	};
 
@@ -127,9 +132,13 @@ const Home: NextPage = (props: any) => {
 				//@ts-ignore
 				player = playerIdToName.get(playerId);
 			} else {
-				const res = await fetch(`./api/players?id=${playerId}`);
-				const results: IPlayer = await res.json();
-				player = results.names.international;
+				const res = await fetch(
+					`https://www.speedrun.com/api/v1/users/${playerId}`
+				);
+				const results = await res.json();
+				const players: IPlayer = results.data;
+				player = players.names.international;
+				playerIdToName.set(playerId, player);
 			}
 
 			if (playerProgressions.has(player)) {
@@ -236,7 +245,7 @@ const Home: NextPage = (props: any) => {
 							onChange={async (props) => {
 								const input = props.target.value;
 								const res = await fetch(
-									`./api/games?name=${input}`
+									`https://www.speedrun.com/api/v1/games?name=${input}`
 								);
 								const results = await res.json();
 								const games: IGame[] = results.data;
@@ -287,6 +296,7 @@ const Home: NextPage = (props: any) => {
 							</Dropdown.Menu>
 						)}
 				</Form>
+				{loading && <h1>Loading...</h1>}
 				{playerProgressionsComplete &&
 					playerProgressions &&
 					datasets && <Line options={options} data={datasets} />}
