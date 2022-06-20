@@ -41,7 +41,7 @@ const Home: NextPage = (props: any) => {
 
 	useEffect(() => {
 		Chart.register(...registerables);
-	}, []);
+	});
 
 	useEffect(() => {
 		if (!selectedGame) return;
