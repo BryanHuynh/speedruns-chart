@@ -167,12 +167,10 @@ const Home: NextPage = (props: any) => {
 			},
 			y: {
 				ticks: {
-					callback: function (
-						tickValue: number,
-						index: number,
-						ticks: any
-					) {
-						return moment.utc(tickValue * 1000).format("HH:mm:ss");
+					callback: function (value, index, ticks) {
+						return moment
+							.utc(Number(value) * 1000)
+							.format("HH:mm:ss");
 					},
 				},
 			},
