@@ -212,6 +212,7 @@ const Home: NextPage = (props: any) => {
 				}),
 				backgroundColor: randomRGB(),
 				borderColor: randomRGB(),
+				stepped: true,
 			});
 		});
 		return {
