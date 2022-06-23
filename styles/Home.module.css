@@ -1,5 +1,5 @@
 .container {
-	padding: 0 2rem;
+	padding: 0 10rem;
 }
 
 .main {
@@ -14,6 +14,31 @@
 
 .Form {
 	width: 100%;
+}
+
+.Container {
+	display: grid;
+	width: 100vw;
+	padding-left: 10%;
+	padding-right: 10%;
+	grid-template-columns: 2fr 0.5fr 0.5fr;
+	grid-template-rows: 1fr, 1fr;
+	gap: 20px 20px;
+	grid-template-areas: "SearchBar Category SubCategory" "SearchSuggestions . .";
+}
+
+.SearchSuggestions {
+	grid-area: SearchSuggestions;
+}
+.SearchBar {
+	grid-area: SearchBar;
+}
+.Category {
+	grid-area: Category;
+	align-self: end;
+}
+.SubCategory {
+	grid-area: SubCategory;
 }
 
 .footer {

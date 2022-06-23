@@ -1,7 +1,6 @@
 import type { NextPage } from "next";
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
-import { parse } from "node-html-parser";
 import Form from "react-bootstrap/Form";
 import { Dropdown } from "react-bootstrap";
 import { useEffect, useRef, useState } from "react";
@@ -14,6 +13,7 @@ import moment, { Moment } from "moment";
 import { Line } from "react-chartjs-2";
 import { Chart, ChartDataset, ChartOptions, registerables } from "chart.js";
 import "chartjs-adapter-moment";
+import { ThreeDots } from "react-loader-spinner";
 
 const Home: NextPage = (props: any) => {
 	// ui refs
@@ -37,7 +37,7 @@ const Home: NextPage = (props: any) => {
 
 	const playerIdToName = new Map<string, string>();
 
-	let [datasets, setDatasets] = useState<any>(null);
+	const [datasets, setDatasets] = useState<any>(null);
 	const [loading, setLoading] = useState<boolean>(false);
 
 	useEffect(() => {
@@ -70,7 +70,7 @@ const Home: NextPage = (props: any) => {
 				}
 			};
 			for (let i = 0; i < totalOrders; i++) {
-				date = date.subtract(1, "months");
+				date = date.subtract(4, "weeks");
 				getLeaderBoard(
 					selectedGame.id,
 					selectedCategory.id,
@@ -233,22 +233,21 @@ const Home: NextPage = (props: any) => {
 
 			<main className={styles.main}>
 				<Form
-					className={styles.Form}
+					className={styles.Container}
 					onSubmit={(e) => {
 						e.preventDefault();
 					}}
 				>
-					<Form.Group>
+					<Form.Group className={styles.SearchBar}>
 						<Form.Label>Game Name</Form.Label>
 						<Form.Control
 							placeholder="Name"
 							ref={searchBarRef}
+							className={styles.FlexItems}
 							onChange={async (props) => {
 								setGameSelected(false);
 								setCategorySelected(false);
 								setSelectedCategory(undefined);
-								// setSelectedGame(props.target.value);
-
 								const input = props.target.value;
 								const res = await fetch(
 									`https://www.speedrun.com/api/v1/games?name=${input}`
@@ -259,50 +258,66 @@ const Home: NextPage = (props: any) => {
 							}}
 						/>
 					</Form.Group>
-					{games.length > 0 && gameSelected == false && (
-						<Dropdown.Menu show>
-							{games.map((game: IGame, i: number) => {
-								return (
-									<Dropdown.Item
-										eventKey={i}
-										key={i}
-										onClick={(event: any) => {
-											setSelectedGame(game);
-											setGameSelected(true);
-										}}
-									>
-										{game.names.international}
-									</Dropdown.Item>
-								);
-							})}
-						</Dropdown.Menu>
-					)}
-					{gameCategories.length > 0 &&
-						gameSelected == true &&
-						!categorySelected && (
-							<Dropdown.Menu show>
-								{gameCategories.map(
-									(category: ICategories, i: number) => {
-										return (
-											<Dropdown.Item
-												eventKey={i}
-												key={i}
-												onClick={(event: any) => {
-													setSelectedCategory(
-														category
-													);
-													setCategorySelected(true);
-												}}
-											>
-												{category.name}
-											</Dropdown.Item>
-										);
-									}
-								)}
+					<div className={styles.SearchSuggestions}>
+						{games.length > 0 && gameSelected == false && (
+							<Dropdown.Menu className={styles.FlexItems} show>
+								{games.map((game: IGame, i: number) => {
+									return (
+										<Dropdown.Item
+											eventKey={i}
+											key={i}
+											onClick={(event: any) => {
+												setSelectedGame(game);
+												setGameSelected(true);
+											}}
+										>
+											{game.names.international}
+										</Dropdown.Item>
+									);
+								})}
 							</Dropdown.Menu>
 						)}
+					</div>
+					<div className={styles.Category}>
+						{gameCategories.length > 0 && (
+							<Dropdown>
+								<Dropdown.Toggle
+									variant="success"
+									id="dropdown-basic"
+								>
+									{selectedCategory
+										? selectedCategory.name
+										: "Select Category"}
+								</Dropdown.Toggle>
+								<Dropdown.Menu>
+									{gameCategories.map(
+										(category: ICategories, i: number) => {
+											return (
+												<Dropdown.Item
+													eventKey={i}
+													key={i}
+													onClick={(event: any) => {
+														setSelectedCategory(
+															category
+														);
+														setCategorySelected(
+															true
+														);
+														setLoading(true);
+													}}
+												>
+													{category.name}
+												</Dropdown.Item>
+											);
+										}
+									)}
+								</Dropdown.Menu>
+							</Dropdown>
+						)}
+					</div>
 				</Form>
-				{loading && !playerProgressionsComplete && <h1>Loading...</h1>}
+
+				{loading && <ThreeDots width="100" />}
 				{playerProgressionsComplete &&
 					playerProgressions &&
 					!loading &&
