@@ -6,6 +6,7 @@ import { Dropdown } from "react-bootstrap";
 import { useEffect, useRef, useState } from "react";
 import ICategories from "../types/ICategories";
 import IGame from "../types/IGames";
+import IVariable, { Option } from "../types/IVariable";
 import ILeaderboard, { Run, RunElement } from "../types/ILeaderboards";
 import IDataset from "./api/times";
 import IPlayer from "../types/IPlayer";
@@ -14,6 +15,8 @@ import { Line } from "react-chartjs-2";
 import { Chart, ChartDataset, ChartOptions, registerables } from "chart.js";
 import "chartjs-adapter-moment";
 import { ThreeDots } from "react-loader-spinner";
+import zoomPlugin from 'chartjs-plugin-zoom';
+import Counter from "../components/counter";
 
 const Home: NextPage = (props: any) => {
 	// ui refs
@@ -30,6 +33,7 @@ const Home: NextPage = (props: any) => {
 	// api response possibilities
 	const [games, setGames] = useState<IGame[]>([]);
 	const [gameCategories, setGameCategories] = useState<ICategories[]>([]);
+	const [categoryVariables, setCategoryVariables] = useState<IVariable[]>([]);
 
 	const playerProgressions = new Map<string, IDataset[]>();
 	const [playerProgressionsComplete, setPlayerProgressionsComplete] =
@@ -39,6 +43,16 @@ const Home: NextPage = (props: any) => {
 
 	const [datasets, setDatasets] = useState<any>(null);
 	const [loading, setLoading] = useState<boolean>(false);
+
+	const [fetchCounter, setFetchCounter] = useState<number>(0);
+
+	const [topNPlayers, setTopNPlayers] = useState<number>(5);
+
+	const debug = false;
+
+	const increaseFetchCounter = () => {
+		setFetchCounter(fetchCounter + 1);
+	};
 
 	useEffect(() => {
 		Chart.register(...registerables);
@@ -54,34 +68,103 @@ const Home: NextPage = (props: any) => {
 
 	useEffect(() => {
 		if (selectedGame && selectedCategory) {
-			let date = moment();
-			let completeOrders = 0;
-			let totalOrders = 20;
-			setLoading(true);
-			const completeOrder = () => {
-				completeOrders++;
-				if (totalOrders == completeOrders) {
-					setPlayerProgressionsComplete(true);
-					setLoading(false);
-					playerProgressions.forEach((value, key) => {
-						value.sort((a, b) => b.time - a.time);
+			const variableURI = selectedCategory.links.find(
+				(o) => o.rel === "variables"
+			);
+			if (variableURI) {
+				getCategoryVariable(variableURI.uri).then((variables) => {
+					const _variables: IVariable[] = [];
+					variables.forEach((variable: any) => {
+						const options: any = [];
+						Object.keys(variable.values.values).map((key: any) => {
+							options.push({
+								id: key,
+								label: variable.values.values[key].label,
+							});
+							return key;
+						});
+						_variables.push({
+							id: variable.id,
+							selected: null,
+							name: variable.name,
+							options: options,
+						});
 					});
-					setDatasets(getDatasets());
-				}
-			};
-			for (let i = 0; i < totalOrders; i++) {
-				date = date.subtract(4, "weeks");
-				getLeaderBoard(
-					selectedGame.id,
-					selectedCategory.id,
-					date,
-					completeOrder
-				);
+					setCategoryVariables(_variables);
+					if (_variables.length == 0) {
+						setLoading(true);
+					}
+				});
 			}
 		}
 	}, [selectedCategory]);
 
+	useEffect(() => {
+		if (!selectedGame || !selectedCategory || !categoryVariables) return;
+		console.log("ready 1");
+		const ready = categoryVariables
+			.map((variable) => {
+				return variable.selected != null;
+			})
+			.every((x) => x);
+		if (!ready) return;
+		setLoading(true);
+	}, [categoryVariables]);
+
+	// useEffect(() => {
+	// 	setLoading(true);
+	// }, [setTopNPlayers])
+
+	useEffect(() => {
+		if (!selectedGame || !selectedCategory) return;
+		if (!loading) return;
+		generateLeaderboard();
+	}, [loading]);
+
+	useEffect(() => {
+		if (categoryVariables) {
+			console.log(categoryVariables);
+		}
+	}, [categoryVariables]);
+
+	const generateLeaderboard = () => {
+		if (!selectedGame || !selectedCategory) return;
+		let variableOptionsString = "";
+		if (categoryVariables) {
+			const variables = categoryVariables.map((variable) => {
+				return "var-" + variable.id + "=" + variable.selected?.id;
+			});
+			variableOptionsString = variables.join("&");
+		}
+		let date = moment();
+		let completeOrders = 0;
+		let totalOrders = 50;
+		setLoading(true);
+		const completeOrder = () => {
+			completeOrders++;
+			if (totalOrders == completeOrders) {
+				setPlayerProgressionsComplete(true);
+				setLoading(false);
+				playerProgressions.forEach((value, key) => {
+					value.sort((a, b) => b.time - a.time);
+				});
+				setDatasets(getDatasets());
+			}
+		};
+		for (let i = 0; i < totalOrders; i++) {
+			getLeaderBoard(
+				selectedGame.id,
+				selectedCategory.id,
+				date,
+				variableOptionsString,
+				completeOrder
+			);
+			date = date.subtract(4, "week");
+		}
+	}
+
 	const getGameCategory = async (id: string) => {
+		increaseFetchCounter();
 		const res = await fetch(
 			`https://www.speedrun.com/api/v1/games/${id}/categories`
 		);
@@ -90,22 +173,40 @@ const Home: NextPage = (props: any) => {
 		setGameCategories(categories);
 	};
 
+	const getCategoryVariable = async (url: string) => {
+		increaseFetchCounter();
+		const res = await fetch(url);
+		const results = await res.json();
+		return results.data;
+	};
+
 	const getLeaderBoard = async (
 		gameId: string,
 		categoryId: string,
 		date: Moment,
+		variableOptionsString: string,
 		completeOrder: () => void
 	) => {
-		const res = await fetch(
-			`https://www.speedrun.com/api/v1/leaderboards/${gameId}/category/${categoryId}?date=${date.toISOString()}&top=5`
-		);
+		increaseFetchCounter();
+		let url = `https://www.speedrun.com/api/v1/leaderboards/${gameId}/category/${categoryId}?${[
+			"date=" + date.toISOString(),
+			variableOptionsString,
+			'embed=players',
+			`top=${topNPlayers}`,
+		].join("&")}`
+		const res = await fetch(url);
 		const results = await res.json();
 		const leaderboards: ILeaderboard = results.data;
-		parseLeaderBoard(leaderboards.runs, completeOrder);
+		if (leaderboards) {
+			parseLeaderBoard(leaderboards.runs, leaderboards.players.data, completeOrder);
+		}
 	};
+
+
 
 	const parseLeaderBoard = (
 		runs: RunElement[],
+		players: IPlayer[],
 		completeOrder: () => void
 	) => {
 		let requests = runs.reduce((promiseChain, item) => {
@@ -126,12 +227,29 @@ const Home: NextPage = (props: any) => {
 			resolve: (value: void | PromiseLike<void>) => void
 		) => {
 			const playerId = runElement.run.players[0].id;
-			let player = "";
+			let player = null;
 
+			// get all the players for this category
 			if (playerIdToName.has(playerId)) {
-				//@ts-ignore
 				player = playerIdToName.get(playerId);
-			} else {
+			} else if (players.some(_player => _player.id === playerId)) {
+				const playerData = players.find(_player => _player.id === playerId);
+				if (playerData) {
+					if (playerData?.names) {
+						player = playerData.names.international;
+					}
+					if (playerData?.name) {
+						player = playerData.name;
+					}
+
+				}
+				if (player) {
+					playerIdToName.set(playerId, player);
+				}
+			}
+
+			if (player == null) {
+				increaseFetchCounter();
 				const res = await fetch(
 					`https://www.speedrun.com/api/v1/users/${playerId}`
 				);
@@ -141,29 +259,32 @@ const Home: NextPage = (props: any) => {
 				playerIdToName.set(playerId, player);
 			}
 
-			if (playerProgressions.has(player)) {
-				if (
-					playerProgressions
-						.get(player)
-						?.filter((dataset) => dataset.id == runElement.run.id)
-						.length == 0
-				) {
-					playerProgressions.get(player)?.push({
-						submissionDate: runElement.run.date,
-						time: runElement.run.times.primary_t,
-						player: player,
-						id: runElement.run.id,
-					});
+			if (player) {
+				if (playerProgressions && playerProgressions.has(player)) {
+					if (
+						playerProgressions
+							.get(player)
+							?.filter(
+								(dataset) => dataset.id == runElement.run.id
+							).length == 0
+					) {
+						playerProgressions.get(player)?.push({
+							submissionDate: runElement.run.date,
+							time: runElement.run.times.primary_t,
+							player: player,
+							id: runElement.run.id,
+						});
+					}
+				} else {
+					playerProgressions.set(player, [
+						{
+							submissionDate: runElement.run.date,
+							time: runElement.run.times.primary_t,
+							player: player,
+							id: runElement.run.id,
+						},
+					]);
 				}
-			} else {
-				playerProgressions.set(player, [
-					{
-						submissionDate: runElement.run.date,
-						time: runElement.run.times.primary_t,
-						player: player,
-						id: runElement.run.id,
-					},
-				]);
 			}
 			resolve();
 		};
@@ -173,6 +294,9 @@ const Home: NextPage = (props: any) => {
 		scales: {
 			x: {
 				type: "time",
+				time: {
+					unit: "month",
+				}
 			},
 			y: {
 				ticks: {
@@ -188,12 +312,6 @@ const Home: NextPage = (props: any) => {
 	};
 
 	const getDatasets = () => {
-		/**
-		 * label: player.name
-		 * data: {x, y}[]
-		 * []
-		 */
-
 		let datasets: any[] = [];
 		let labels: Date[] = [];
 		playerProgressions.forEach((values: IDataset[], key: string) => {
@@ -250,6 +368,7 @@ const Home: NextPage = (props: any) => {
 								setCategorySelected(false);
 								setSelectedCategory(undefined);
 								const input = props.target.value;
+								increaseFetchCounter();
 								const res = await fetch(
 									`https://www.speedrun.com/api/v1/games?name=${input}`
 								);
@@ -304,7 +423,6 @@ const Home: NextPage = (props: any) => {
 														setCategorySelected(
 															true
 														);
-														setLoading(true);
 													}}
 												>
 													{category.name}
@@ -315,8 +433,59 @@ const Home: NextPage = (props: any) => {
 								</Dropdown.Menu>
 							</Dropdown>
 						)}
+
+						{categoryVariables.map((variable, i) => {
+							return (
+								<div key={i}>
+									<Dropdown>
+										<Dropdown.Toggle
+											variant="success"
+											id="dropdown-basic"
+										>
+											{variable.selected
+												? variable.selected.label
+												: variable.name}
+										</Dropdown.Toggle>
+
+										<Dropdown.Menu>
+											{variable.options.map(
+												(value: Option, i: number) => {
+													return (
+														<Dropdown.Item
+															eventKey={i}
+															key={i}
+															onClick={() => {
+																// set the category variable selected to true
+																setCategoryVariables(
+																	categoryVariables.map((_variable) => {
+																		if (_variable.id === variable.id) {
+																			return {
+																				...variable,
+																				selected: value,
+																			};
+																		}
+																		return _variable;
+																	})
+																);
+															}}
+														>
+															{value.label}
+														</Dropdown.Item>
+													);
+												}
+											)}
+										</Dropdown.Menu>
+									</Dropdown>
+								</div>
+							);
+						})}
 					</div>
+					<Counter
+						count={topNPlayers}
+						setCounter={setTopNPlayers}
+					/>
 				</Form>
+				{debug && <h1>fetch Counter {fetchCounter}</h1>}
 
 				{loading && <ThreeDots width="100" />}
 				{playerProgressionsComplete &&

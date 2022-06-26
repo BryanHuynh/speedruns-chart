@@ -1,5 +1,6 @@
 export default interface IPlayer {
 	id: string;
+	name?: string;
 	names: Names;
 	supporterAnimation: boolean;
 	pronouns: string;

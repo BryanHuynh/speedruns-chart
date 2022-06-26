@@ -35,8 +35,14 @@
 }
 .Category {
 	grid-area: Category;
+	display: flex;
 	align-self: end;
 }
+
+.Category > * {
+	margin: 0px 10px;
+}
+
 .SubCategory {
 	grid-area: SubCategory;
 }

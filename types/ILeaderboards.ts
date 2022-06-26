@@ -1,3 +1,5 @@
+import IPlayer from "./IPlayer";
+
 export default interface ILeaderboard {
 	weblink: string;
 	game: string;
@@ -5,6 +7,9 @@ export default interface ILeaderboard {
 	level: null;
 	platform: null;
 	region: null;
+	players: {
+		data: IPlayer[];
+	}
 	emulators: null;
 	"video-only": boolean;
 	timing: string;
